@@ -1,29 +1,15 @@
-"""
-Programa desenvolvido por Marcos Alves dos Santos -- 201710421.
-
-Este é o arquivo secundário, no qual consta a classe "Newton", cujos métodos e atributos são 
-utilizados no arquivo principal "main".
-
-Todos os valores já estão definidos de acordo com o exercício avaliativo no arquivo "main".
-"""
-
-import cmath as cmt
-import math as mt
-
-import matplotlib.pyplot as plt
-import numpy as np
-
+import cmath as cmt 
+import math as mt 
+import matplotlib.pyplot as plt 
+import numpy as np 
 
 class Newton:
     def __init__(self):
         self.Sbase = 100e6
-        self.Vbase = 230e3
         self.__dados = dict()
         self.__Sesp = dict()
         self.__Ligacoes = dict()
         self.__ybus = []
-        self.__SresiduoPQ = dict()
-        self.__SresiduoPV = dict()
         self.__J1 = []
         self.__J2 = []
         self.__J3 = []
@@ -31,13 +17,10 @@ class Newton:
         self.__Jacob = []
         self.__listTensao = []
         self.__listAng = []
-        self.__PeQ = []
-        self.__Sfolga = []
         self.__fluxoS = dict()
         self.count = 0
         self.__tensaoPlot = dict()
         self.__angPlot = dict()
-        self.__control = bool()
         self.__x = []
         self.__I = dict()
         self.__V = dict()
@@ -73,6 +56,7 @@ class Newton:
         Método utilizado para printar todos os valores em cada barra.
         """
         print('\n\n=============================== DADOS: =================================')
+        print('Sbase = ', self.Sbase, ' VA')
         for i in self.__dados:
             print(self.__dados[i])
         print('========================================================================')
@@ -140,11 +124,12 @@ class Newton:
         Método utilizado para calcular a matriz ybus. O cálculo é feito com base no que foi
         visto em aula.
         """
-        for i in range(len(self.__dados)):
-            lin = []
-            for j in range(len(self.__dados)):
-                if i == j:
+        self.__ybus = np.ones((len(self.__dados), len(self.__dados)), dtype=complex)
 
+        for i in range(len(self.__ybus)):
+            lin = []
+            for j in range(len(self.__ybus)):
+                if i == j:
                     lin.append(0)
                 else:
                     if self.__Ligacoes.__contains__(tuple([i + 1, j + 1])):
@@ -153,10 +138,10 @@ class Newton:
                         lin.append(-self.__Ligacoes.get(tuple([j + 1, i + 1]))['Admitância'])
                     else:
                         lin.append(0)
-            for j in range(len(self.__dados)):
+            for j in range(len(self.__ybus)):
                 if i == j:
                     lin[j] = -1 * sum(lin)
-            self.__ybus.append(lin)
+            self.__ybus[i] = lin
 
         self.__printYbus()
 
@@ -165,6 +150,8 @@ class Newton:
                 self.__nPQ += 1
             elif self.__dados.get(i)['code'] == 3:
                 self.__nPV += 1
+
+
 
     def Sinjetada(self):
         """
@@ -208,6 +195,11 @@ class Newton:
             self.__deltaPeQ.append(self.__ResiduoQ[i])  # SEM O j
 
         for i in self.__deltaPeQ: print(i)
+
+
+
+
+
 
     def __setJ1(self, listAng, nPQ, nPV):
         """
@@ -256,6 +248,10 @@ class Newton:
                 else:
                     self.__J1[i][j] = np.real(outDiagonal[m])
                     m += 1
+
+        print("\nJ1 = \n", self.__J1)
+
+        
         return self.__J1
 
     def __setJ2(self, listTensao, listAng, nPQ, nPV):
@@ -303,7 +299,6 @@ class Newton:
                     )
         m = 0
         for i in range(nPQ + nPV):
-            k = nPV
             for j in range(nPQ):
                 if i < nPV:
                     self.__J2[i][j] = np.real(outDiagonal[m])
@@ -311,10 +306,11 @@ class Newton:
                 elif i >= nPV:
                     if i - nPV == j:
                         self.__J2[i][j] = np.real(mainDiagonal[j + nPV])
-                        k += 1
                     else:
                         self.__J2[i][j] = np.real(outDiagonal[m])
                         m += 1
+        print("\nJ2 = \n", self.__J2)
+
 
         return self.__J2
 
@@ -356,21 +352,23 @@ class Newton:
                                 self.__dados.get(i)['ang'] +
                                 self.__dados.get(j)['ang'])
                     )
-        # m = 0
-        k = (len(listAng) + len(listTensao))
+        m = 0
+        # print('\nmainDiagonal = ', mainDiagonal)
+        # print('\noutDiagonal = ', outDiagonal)
 
         for i in range(nPQ):
             for j in range(nPQ + nPV):
                 if j < nPV:
-                    # print('k = ', k)
-                    self.__J3[i][j] = np.real(outDiagonal[k])
-                    k += 1
+                    self.__J3[i][j] = np.real(outDiagonal[m])
+                    m += 1
                 elif j >= nPV:
                     if j - nPV == i:
                         self.__J3[i][j] = np.real(mainDiagonal[i + nPV])
                     else:
-                        self.__J3[i][j] = np.real(outDiagonal[k])
-                        k += 1
+                        self.__J3[i][j] = np.real(outDiagonal[m])
+                        m += 1
+        print("\nJ3 = \n", self.__J3)
+
         return self.__J3
 
     def __setJ4(self, listTensao, listAng, nPQ, nPV):
@@ -413,14 +411,22 @@ class Newton:
                                 self.__dados.get(i)['ang'] +
                                 self.__dados.get(j)['ang'])
                     )
-        k = nPQ + nPV + 1
+        m = 0
+
+        # print('\nmainDiagonal = ', mainDiagonal)
+        # print('\noutDiagonal = ', outDiagonal)
+
+
         for i in range(nPQ):
             for j in range(nPQ):
                 if i == j:
                     self.__J4[i][j] = np.real(mainDiagonal[j + nPV])
                 else:
-                    self.__J4[i][j] = np.real(outDiagonal[k])
-                    k += 1
+                    self.__J4[i][j] = np.real(outDiagonal[m])
+                    m += 1
+
+        print("\nJ4 = \n", self.__J4)
+
         return self.__J4
 
     def setJacob(self, listTensao, listAng):
@@ -433,23 +439,21 @@ class Newton:
         Printa a matriz Jacobiana.
         """
 
-        nPQ = 0
-        nPV = 0
-        for i in self.__dados:
-            if self.__dados.get(i)['code'] == 2:
-                nPQ += 1
-            elif self.__dados.get(i)['code'] == 3:
-                nPV += 1
-
         self.__Jacob = []
         self.__listTensao = listTensao
         self.__listAng = listAng
         nXn = len(listTensao) + len(listAng)
 
-        J1 = self.__setJ1(listAng, nPQ, nPV)  # (nPQ  + nPV) X (nPQ + nPV)
-        J2 = self.__setJ2(listTensao, listAng, nPQ, nPV)  # (nPQ  + nPV) X (nPQ)
-        J3 = self.__setJ3(listTensao, listAng, nPQ, nPV)  # (nPQ) X (nPQ + nPV)
-        J4 = self.__setJ4(listTensao, listAng, nPQ, nPV)  # (nPQ) X (nPQ)
+        print('\nself.__listTensão = ', self.__listTensao)
+        print('\nlistTensão = ', listTensao)
+        print('\nself.__listAng = ', self.__listAng)
+        print('\nlistAng = ', listAng)
+        
+
+        J1 = self.__setJ1(listAng, self.__nPQ, self.__nPV)  # (nPQ  + nPV) X (nPQ + nPV)
+        J2 = self.__setJ2(listTensao, listAng, self.__nPQ, self.__nPV)  # (nPQ  + nPV) X (nPQ)
+        J3 = self.__setJ3(listTensao, listAng, self.__nPQ, self.__nPV)  # (nPQ) X (nPQ + nPV)
+        J4 = self.__setJ4(listTensao, listAng, self.__nPQ, self.__nPV)  # (nPQ) X (nPQ)
 
         self.__Jacob = np.zeros((nXn, nXn))
 
@@ -545,7 +549,7 @@ class Newton:
                             'ang']) * 1j
                     )
             if self.__dados[i]['code'] == 1:
-                self.__Sbarras[i] = {'P': np.real(sum(soma1)), 'Q': np.real(sum(soma2))}
+                self.__Sbarras[i] = {'P': np.real(sum(soma1)), 'Q': np.imag(sum(soma2))}
             elif self.__dados[i]['code'] == 3:
                 self.__Sbarras[i] = {'P': 0, 'Q': np.imag(sum(soma2))}
 
